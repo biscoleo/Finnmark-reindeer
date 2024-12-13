@@ -25,3 +25,6 @@ detail in future projects.
 
 ## Usage
 Feel free to use the PLS models I made in R as a template. Make sure that your data meets the requirements of a PLS model and visit my Project Report to learn about the details of PLS, the data, the sources for this project, some learning opportunities and ideas for model improvement. 
+
+## Contact me!
+If you want to talk about the content or methods of this project or have any questions, head to the bottom of my [GitHub portfolio website](https://biscoleo.github.io/) and send me a message!
