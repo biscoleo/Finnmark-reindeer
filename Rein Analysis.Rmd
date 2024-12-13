@@ -1,0 +1,300 @@
+---
+title: "Reindeer Project Analysis"
+output:
+  pdf_document: default
+  word_document: default
+date: "2024-03-22"
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo=TRUE)
+#install.packages("caret")
+#install.packages("vip")
+#install.packages("pls")
+#install.packages("ggpubr")
+library(pls)
+library(vip)
+library(caret)
+library(ggpubr)
+library(knitr)
+
+#load data
+reindeer_data<- read.csv("reindeer_dataframe.csv")
+(reindeer_data)
+
+
+# I found the plots easier to read when the variable names were clear:
+sami_pop<- reindeer_data$sami_pop
+sa_temp_min<- reindeer_data$sa_temp_min 
+sa_temp_max<- reindeer_data$sa_temp_max
+prec <- reindeer_data$prec
+lynx<-reindeer_data$lynx
+wolverine <- reindeer_data$wolverine
+carcass_weight<-reindeer_data$carcass_weight
+avg_price_meat<-reindeer_data$avg_price
+radio <- reindeer_data$radio 
+higher_ed <-reindeer_data$higher_ed
+basic_school <-reindeer_data$basic_school
+permit_to_build <- reindeer_data$permit_to_build
+underconstruction <- reindeer_data$underconstruction
+computer <- reindeer_data$computer
+internet <- reindeer_data$internet
+greenhouse_gases_emitted <- reindeer_data$greenhouse_gases_emitted
+ag_area_decares_finnmark <- reindeer_data$ag_area_decares_finnmark
+
+
+# Split the data into predictor variables [X] and response variable [Y]:
+total_reindeer <- (reindeer_data$Reindeer_Total)
+predictors <- data.frame(sami_pop,
+                         sa_temp_min, 
+                         sa_temp_max, 
+                         prec,
+                         lynx,
+                         wolverine,
+                         carcass_weight,
+                         avg_price_meat,
+                         radio, 
+                         higher_ed,
+                         basic_school,
+                         permit_to_build,
+                         underconstruction,
+                         computer,
+                         internet,
+                         greenhouse_gases_emitted,
+                         ag_area_decares_finnmark)
+
+#Mean-center and scale the predictors dataframe:
+predictors_scaled <- as.data.frame(scale(predictors))
+reindeer<-cbind(total_reindeer,predictors_scaled)
+summary(reindeer)
+
+```
+
+
+PLS MODEL 1:
+```{r}
+###MODEL 1 ###
+# Split the data into a training set and test set:
+#training data: the rows 1-11:
+training_data <- reindeer[1:11, c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17)]
+(training_data)
+# testing data: the rows 12-15:
+y_test <- reindeer[12:nrow(reindeer), c("total_rein")]
+test <- reindeer[12:nrow(reindeer), c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17)]
+
+
+# This code runs the partial least squsare regression:
+pls_model<- plsr(training_data$total_reindeer ~ ., data= training_data,validation = "LOO")
+# this is to veiw the summary, which is important in determining what to do next:
+summary(pls_model)
+
+# This is the mathematical way to determine the number of components to use:
+ncomp.onesigma <- selectNcomp(pls_model, method = "onesigma", plot = TRUE)
+ncomp.permut <- selectNcomp(pls_model, method = "randomization", plot = TRUE)
+(ncomp.onesigma)
+(ncomp.permut)
+
+#RMSEP over Components: this is the visual way to determine the number of components: 3
+rme<- plot(RMSEP(pls_model), legendpos = "topright")
+
+# these plots let us examine how well our model fits the data based on the number of
+# components we selected:
+plot(pls_model, ncomp = 1, asp = 1, line = TRUE, main="Cross Validated predictions for reindeer data with 1 component")
+plot(pls_model, ncomp = 2, asp = 1, line = TRUE, main="Cross Validated predictions for reindeer data with 2 components")
+plot(pls_model, ncomp = 3, asp = 1, line = TRUE, main="Cross Validated predictions for reindeer data with 3 components")
+
+# this is a way to visually inspect the data for any outliers or oddities:
+plot(pls_model, plottype = "scores", comps = 1:3)
+explvar(pls_model)
+
+# these plots show variable loading value on component: in simple terms, how much the
+# variable has an effect on the component, with points near zero having little effect
+# plot 1
+plot(pls_model, "loadings", comps = 1:3,main="Loading plot")
+legend("bottomright", legend = paste("Component", 1:3), col = 1:3, lty = 1, cex = 0.8)
+abline(h = 0)
+axis(side = 1, at = 1:17, labels = colnames(pls_model$Xvar), cex.axis = 0.7)
+# plot 2
+plot(pls_model, plottype = "correlation", ncomp=1:3, legendpos = "bottomleft",main="Correlations loading plot for reindeer data")
+
+# the vi and vip function shows the "variable importance in projection" and tells us 
+# which variables had the strongest effect on the model
+vip(pls_model)
+vi(pls_model)
+
+# the regression coefficient plot looks at how strongly each variable related to the 
+# outcome variable. This plot shows 3 components:
+plot(pls_model, plottype = "coef", ncomp=1:3, legendpos = "bottomright",main="Regression coefficients")
+axis(side = 1, at = 1:17, labels = colnames(pls_model$Xvar), cex.axis = 0.7)
+
+
+# This is the predict feature of the model for each of the number of the components
+# suggested above.
+prediction_1 = predict(pls_model, comps=1, newdata=test)
+prediction_2 = predict(pls_model, comps=2, newdata=test)
+prediction_3 = predict(pls_model, comps=3, newdata=test)
+#this is the actual number of reindeer
+actual = (reindeer$total_reindeer[12:15])
+# print to console for a visual comparison
+(prediction_1)
+(prediction_2)
+(prediction_3)
+(actual)
+
+# Outcomes for the 3 component choices: 
+
+# From the permutation method: 1 component:
+print("RMSE for prediction::actual with ncomp = 1")
+sqrt(mean((prediction_1 - actual)^2))
+# Calculate mean absolute error
+mae1 <- mean(abs(prediction_1 - actual))
+# Calculate R-squared
+r_squared1 <- 1 - sum((actual - prediction_1)^2) / sum((mean(actual) - actual)^2)
+# Print MAE and R-squared
+print(paste("Mean Absolute Error: ", mae1))
+print(paste("R-squared: ", r_squared1))
+
+# From the one-sigma method: 2 components:
+print("RMSE for prediction::actual with ncomp = 2")
+sqrt(mean((prediction_2 - actual)^2))
+# Calculate mean absolute error
+mae2 <- mean(abs(prediction_2 - actual))
+# Calculate R-squared
+r_squared2 <- 1 - sum((actual - prediction_2)^2) / sum((mean(actual) - actual)^2)
+# Print MAE and R-squared
+print(paste("Mean Absolute Error: ", mae2))
+print(paste("R-squared: ", r_squared2))
+
+# From the visual method: 3 components:
+print("RMSE for prediction::actual with ncomp = 3")
+sqrt(mean((prediction_3 - actual)^2))
+# Calculate mean absolute error
+mae3 <- mean(abs(prediction_3 - actual))
+# Calculate R-squared
+r_squared3 <- 1 - sum((actual - prediction_3)^2) / sum((mean(actual) - actual)^2)
+# Print MAE and R-squared
+print(paste("Mean Absolute Error: ", mae3))
+print(paste("R-squared: ", r_squared3))
+```
+
+
+PLS MODEL 2:
+```{r}
+
+############ MODEL 2 #############
+# Build a new data frame based on the top 9 variables:
+predictors2 <- data.frame(sami_pop,
+                         avg_price_meat,
+                         computer,
+                         higher_ed,
+                         underconstruction,
+                         radio,
+                         basic_school,
+                         permit_to_build,
+                         internet)
+
+predictors_scaled2 <- as.data.frame(scale(predictors2))
+reindeer2<-cbind(total_reindeer,predictors_scaled2)
+summary(reindeer2)
+
+#split data:
+#training data:
+training_data2 <- reindeer2[1:11, c(1,2,3,4,5,6,7,8,9)]
+(training_data2)
+# testing data:
+y_test2 <- reindeer2[12:nrow(reindeer2), c("total_rein")]
+test2 <- reindeer2[12:nrow(reindeer2), c(1,2,3,4,5,6,7,8,9)]
+
+# This code runs the partial least squares regression
+pls_model2<- plsr(total_reindeer ~ ., data= training_data2,validation = "LOO")
+# this is to veiw the summary, which is important in determining what to do next:
+summary(pls_model2)
+
+# This is the mathematical way to determine the number of components to use:
+ncomp.onesigma <- selectNcomp(pls_model2, method = "onesigma", plot = TRUE)
+ncomp.permut <- selectNcomp(pls_model2, method = "randomization", plot = TRUE)
+(ncomp.onesigma)
+(ncomp.permut)
+
+#RMSEP over Components: this is the visual way to determine the number of components: 6
+rme<- plot(RMSEP(pls_model2), legendpos = "topright")
+
+# these plots let us examine how well our model fits the data based on the number of
+# components we selected:
+plot(pls_model2, ncomp = 1, asp = 1, line = TRUE, main="Cross Validated predictions for reindeer data with 1 component")
+plot(pls_model2, ncomp = 8, asp = 1, line = TRUE, main="Cross Validated predictions for reindeer data with 8 components")
+plot(pls_model2, ncomp = 6, asp = 1, line = TRUE, main="Cross Validated predictions for reindeer data with 6 components")
+
+# this is a way to visually inspect the data for any outliers or oddities:
+plot(pls_model2, plottype = "scores", comps = 1:6)
+explvar(pls_model2)
+
+# these plots show variable loading value on component: in simple terms, how much the
+# variable has an effect on the component, with points near zero having little effect
+# plot 1#
+plot(pls_model2, "loadings", comps = 1:6,main="Loading plot")
+legend("bottomright", legend = paste("Component", 1:6), col = 1:9, lty = 1, cex = 0.8)
+abline(h = 0)
+axis(side = 1, at = 1:9, labels = colnames(pls_model2$Xvar), cex.axis = 0.7)
+# plot 2
+plot(pls_model2, plottype = "correlation", ncomp=1:6, legendpos = "bottomleft",main="Correlations loading plot for reindeer data")
+
+# the vi and vip function shows the "variable importance in projection" and tells us 
+# which variables had the strongest effect on the model
+vip(pls_model2)
+vi(pls_model2)
+
+# the regression coefficient plot looks at how strongly each variable related to the 
+# outcome variable. This plot shows 3 components:
+plot(pls_model2, plottype = "coef", ncomp=1:6, legendpos = "topright",main="Regression coefficients")
+axis(side = 1, at = 1:9, labels = colnames(pls_model2$Xvar), cex.axis = 0.7)
+
+# This is the predict feature of the model for each of the number of the components
+# suggested above.
+prediction2_1 = predict(pls_model, ncomp = 1, newdata = test)
+prediction2_8 = predict(pls_model2, ncomp = 8, newdata = test)
+prediction2_6 = predict(pls_model2, ncomp = 6, newdata=test)
+# actual outcome:
+actual = (reindeer$total_reindeer[12:15])
+# print to console for a visual comparison
+(prediction2_1)
+(prediction2_8)
+(prediction2_6)
+(actual)
+
+# Outcomes for the 3 component choices:
+
+# From the permutation method: 1 component:
+print("RMSE for prediction::actual with ncomp = 1")
+sqrt(mean((prediction2_1 - actual)^2))
+# Calculate mean absolute error
+mae2_1 <- mean(abs(prediction2_1 - actual))
+# Calculate R-squared
+r_squared2_1 <- 1 - sum((actual - prediction2_1)^2) / sum((mean(actual) - actual)^2)
+# Print MAE and R-squared
+print(paste("Mean Absolute Error: ", mae2_1))
+print(paste("R-squared: ", r_squared2_1))
+
+# From the one-sigma method: 8 components:
+print("RMSE for prediction::actual with ncomp = 8")
+sqrt(mean((prediction2_8 - actual)^2))
+# Calculate mean absolute error
+mae2_8 <- mean(abs(prediction2_8 - actual))
+# Calculate R-squared
+r_squared2_8 <- 1 - sum((actual - prediction2_8)^2) / sum((mean(actual) - actual)^2)
+# Print MAE and R-squared
+print(paste("Mean Absolute Error: ", mae2_8))
+print(paste("R-squared: ", r_squared2_8))
+
+# From the visual method: 6 components:
+print("RMSE for prediction::actual with ncomp = 6")
+sqrt(mean((prediction2_6 - actual)^2))
+# Calculate mean absolute error
+mae2_6 <- mean(abs(prediction2_6 - actual))
+# Calculate R-squared
+r_squared2_6 <- 1 - sum((actual - prediction2_6)^2) / sum((mean(actual) - actual)^2)
+# Print MAE and R-squared
+print(paste("Mean Absolute Error: ", mae2_6))
+print(paste("R-squared: ", r_squared2_6))
+```
+
