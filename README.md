@@ -1,5 +1,5 @@
-# Kautokeino-reindeer
-Analyzing Reindeer Herd Size in Kautokeino, Norway
+# What Impacts Reindeer Herd Size?
+Analyzing Reindeer Herd Size in Finnmark, Norway
 
 ## About
 This project was for Probability & Statistics class in which we were supposed to explore a statistical analysis method we had not yet covered in class on a topic of interest. For this project, I opted to look at reindeer herd size in Finnmark Norway because I had spent time living and working with the Sami reindeer herders there. Many of the conversations I had surrounded the health and size of the herds in the face of the changing climate and changing cultural norms. With this in mind, I wanted to explore what factors could contribute to herd size. I found some data online about herd sizes in Finnmark, and because I had more variables than observations, I decided to use a PLS model. 
